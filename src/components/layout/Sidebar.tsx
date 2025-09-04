@@ -11,7 +11,7 @@ import { useWallet } from "@/contexts/WalletContext";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  width?: number; // pixels
+  width?: number;
   onResizeStart?: () => void;
   onResize?: (width: number) => void;
   onResizeEnd?: () => void;
@@ -21,7 +21,7 @@ interface SidebarProps {
 export default function Sidebar({
   isOpen,
   onClose,
-  width = 256,
+  width = 280,
   onResize,
   onResizeStart,
   onResizeEnd,
@@ -47,9 +47,10 @@ export default function Sidebar({
           "fixed left-0 top-0 z-50 h-full border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
           "transition-transform duration-200 ease-out",
           "lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          collapsed ? "lg:w-16" : "lg:w-[var(--sidebar-width)]" // Use CSS variable for desktop
         )}
-        style={{ width }}
+        style={{ "--sidebar-width": `${width}px` } as React.CSSProperties} // Set CSS variable
       >
         <div className="h-14 sm:h-16 border-b border-sidebar-border flex items-center justify-between gap-2 px-3">
           <Link
@@ -112,40 +113,40 @@ export default function Sidebar({
                 "Connected"
               ) : (
                 <>
-                  <Wallet className="h-4 w-4 " />
+                  <Wallet className="h-4 w-4" />
                   Connect Wallet
                 </>
               )}
             </Button>
           </div>
         </div>
-        {/* Resize handle on the right edge */}
-        <div
-          className="absolute top-0 right-0 h-full w-2 cursor-col-resize group"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            if (collapsed) return;
-            onResizeStart?.();
-            const startX = e.clientX;
-            const startWidth = width;
-            const onMove = (moveEvent: MouseEvent) => {
-              const delta = moveEvent.clientX - startX;
-              const next = Math.min(420, Math.max(200, startWidth + delta));
-              onResize?.(next);
-            };
-            const onUp = () => {
-              onResizeEnd?.();
-              window.removeEventListener("mousemove", onMove);
-              window.removeEventListener("mouseup", onUp);
-            };
-            window.addEventListener("mousemove", onMove);
-            window.addEventListener("mouseup", onUp);
-          }}
-        >
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-md border border-sidebar-border bg-sidebar p-1 shadow-sm">
-            <GripVertical className="h-4 w-4 opacity-60 group-hover:opacity-100" />
+        {!collapsed && (
+          <div
+            className="absolute top-0 right-0 h-full w-2 cursor-col-resize group lg:block" // Ensure resize handle is visible on desktop
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onResizeStart?.();
+              const startX = e.clientX;
+              const startWidth = width;
+              const onMove = (moveEvent: MouseEvent) => {
+                const delta = moveEvent.clientX - startX;
+                const next = Math.min(420, Math.max(200, startWidth + delta));
+                onResize?.(next);
+              };
+              const onUp = () => {
+                onResizeEnd?.();
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-md border border-sidebar-border bg-sidebar p-1 shadow-sm">
+              <GripVertical className="h-4 w-4 opacity-60 group-hover:opacity-100" />
+            </div>
           </div>
-        </div>
+        )}
       </aside>
     </>
   );

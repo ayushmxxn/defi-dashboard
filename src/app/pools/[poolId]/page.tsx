@@ -246,14 +246,14 @@ export default function PoolDetails() {
       {isLoading ? (
         <div className="space-y-6">
           {/* Top Section Skeleton */}
-          <div className="flex flex-col lg:flex-row justify-between gap-6">
+          <div className="flex flex-row items-center justify-between gap-4">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="h-8 w-48 bg-muted rounded animate-pulse"></div>
                 <div className="h-6 w-24 bg-muted rounded animate-pulse"></div>
               </div>
             </div>
-            <div className="flex items-start">
+            <div className="ml-auto">
               <div className="h-10 w-32 bg-muted rounded animate-pulse"></div>
             </div>
           </div>
@@ -302,16 +302,14 @@ export default function PoolDetails() {
       ) : (
         <div className="space-y-6">
           {/* Top Section */}
-          <div className="flex flex-col lg:flex-row justify-between gap-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold">{pool.project}</h1>
-                <Badge variant={getCategoryVariant(pool.category)}>
-                  {pool.category}
-                </Badge>
-              </div>
+          <div className="flex flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold">{pool.project}</h1>
+              <Badge variant={getCategoryVariant(pool.category)}>
+                {pool.category}
+              </Badge>
             </div>
-            <div className="flex items-start">
+            <div className="ml-auto">
               <Button variant="outline" className="shadow-none" asChild>
                 <Link href="/">
                   <ArrowLeft className="h-4 w-4 mr-2" />
