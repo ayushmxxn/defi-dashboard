@@ -58,7 +58,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           setAccount(accounts[0].address);
           setIsWalletConnected(true);
         }
-      } catch (error) {
+      } catch {
         console.log("No existing connection found");
       }
     };
@@ -124,8 +124,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
               method: "wallet_switchEthereumChain",
               params: [{ chainId: "0x1" }],
             });
-          } catch (switchError: any) {
-            if (switchError.code === 4902) {
+          } catch (switchError: unknown) {
+            if ((switchError as { code?: number }).code === 4902) {
               // Chain not added, try to add it
               try {
                 await window.ethereum.request({
@@ -144,12 +144,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
                     },
                   ],
                 });
-              } catch (addError) {
+              } catch {
+                // addError is intentionally unused as we throw a generic error
                 throw new Error(
                   "Failed to add Ethereum Mainnet to MetaMask. Please add it manually."
                 );
               }
-            } else if (switchError.code === 4001) {
+            } else if ((switchError as { code?: number }).code === 4001) {
               throw new Error(
                 "User rejected the network switch. Please switch to Ethereum Mainnet manually."
               );
@@ -164,18 +165,18 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         setAccount(accounts[0]);
         setIsWalletConnected(true);
         console.log("Successfully connected to MetaMask:", accounts[0]);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to connect wallet:", error);
 
         // Provide specific error messages based on the error type
         let errorMessage = "Failed to connect to MetaMask. Please try again.";
 
-        if (error.message) {
+        if (error instanceof Error && error.message) {
           errorMessage = error.message;
-        } else if (error.code === 4001) {
+        } else if ((error as { code?: number }).code === 4001) {
           errorMessage =
             "Connection rejected. Please approve the connection in MetaMask.";
-        } else if (error.code === -32002) {
+        } else if ((error as { code?: number }).code === -32002) {
           errorMessage =
             "Connection request already pending. Please check MetaMask.";
         }
@@ -205,7 +206,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!window.ethereum) return;
 
-    const handleAccountsChanged = (accounts: string[]) => {
+    const handleAccountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[];
       if (accounts.length > 0) {
         setAccount(accounts[0]);
         setIsWalletConnected(true);
@@ -217,7 +219,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       }
     };
 
-    const handleChainChanged = (chainId: string) => {
+    const handleChainChanged = (...args: unknown[]) => {
+      const chainId = args[0] as string;
       console.log("Chain changed to:", chainId);
       // Reload the page when chain changes to ensure proper state
       window.location.reload();
