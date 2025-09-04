@@ -1,103 +1,398 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Lock,
+  DollarSign,
+  Percent,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import Link from "next/link";
+import { useWallet } from "@/contexts/WalletContext";
+
+interface Pool {
+  pool: string;
+  chain: string;
+  project: string;
+  symbol: string;
+  tvlUsd: number | null;
+  apy: number | null;
+  apyMean30d: number | null;
+  category: string;
+}
+
+interface ApiResponse {
+  data: Pool[];
+  error?: string;
+}
+
+export default function DeFiPoolsTable() {
+  const { isWalletConnected } = useWallet();
+  const [pools, setPools] = useState<Pool[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    async function fetchPools() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/pools", {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch pools: ${response.statusText}`);
+        }
+
+        const result: ApiResponse = await response.json();
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        setPools(result.data);
+      } catch (err: unknown) {
+        console.error("Error fetching pools from API route:", err);
+        setError("Failed to load pool data. Please try again later.");
+        setPools([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchPools();
+  }, []);
+
+  const filteredPools =
+    categoryFilter === "All"
+      ? pools
+      : pools.filter((pool) => pool.category === categoryFilter);
+
+  const categories: string[] = [
+    "All",
+    "Lending",
+    "Liquid Staking",
+    "Yield Aggregator",
+  ];
+
+  const formatTVL = (tvl: number | null): string => {
+    if (tvl === null || tvl === undefined) return "N/A";
+    if (tvl <= 0) return "$0";
+    if (tvl >= 1_000_000_000) return `$${(tvl / 1_000_000_000).toFixed(1)}B`;
+    if (tvl >= 1_000_000) return `$${(tvl / 1_000_000).toFixed(1)}M`;
+    return `$${tvl.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
+  const formatAPY = (apy: number | null): string => {
+    if (apy === null || apy === undefined) return "N/A";
+    return `${apy.toFixed(2)}%`;
+  };
+
+  const getCategoryVariant = (
+    category: string
+  ): "default" | "secondary" | "outline" => {
+    switch (category) {
+      case "Lending":
+        return "default";
+      case "Liquid Staking":
+        return "secondary";
+      case "Yield Aggregator":
+        return "outline";
+      default:
+        return "secondary";
+    }
+  };
+
+  const getApyTrend = (apy: number | null, apyMean30d: number | null) => {
+    if (apy === null || apyMean30d === null) return null;
+    const diff = apy - apyMean30d;
+    if (Math.abs(diff) < 0.1) return null;
+    return diff > 0 ? (
+      <TrendingUp
+        className="h-3 w-3 text-green-500 inline-block mr-1"
+        aria-label="APY trending up"
+      />
+    ) : (
+      <TrendingDown
+        className="h-3 w-3 text-red-500 inline-block mr-1"
+        aria-label="APY trending down"
+      />
+    );
+  };
+
+  const getApyBadgeVariant = (
+    apy: number | null
+  ): "default" | "secondary" | "outline" | "destructive" => {
+    if (apy === null || apy === undefined) return "secondary";
+    if (apy >= 6) return "default";
+    if (apy <= 4) return "destructive";
+    return "outline";
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <Tooltip.Provider>
+      <div className="px-6 sm:px-8 py-10 bg-background text-foreground max-w-full overflow-x-auto">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">
+              DeFi Pools
+            </h1>
+            <p className="sm:text-lg text-muted-foreground">
+              Discover the best yield opportunities across leading DeFi
+              protocols
+            </p>
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-[180px] border-border rounded-md focus:outline-none">
+              <SelectValue placeholder="Select Category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        <div className="overflow-x-auto">
+          <div className="border border-border rounded-lg overflow-hidden">
+            <Table className="min-w-full">
+              <TableHeader>
+                <TableRow className="border-b border-border bg-neutral-100 dark:bg-[#1D1D22] dark:hover:bg-[#1D1D22] rounded-t-lg">
+                  <TableHead className="px-4 py-3.5 font-medium text-neutral-900 dark:text-foreground">
+                    Project
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 font-medium text-neutral-900 dark:text-foreground">
+                    Category
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 font-medium text-neutral-900 dark:text-foreground">
+                    Asset
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 font-medium text-right text-neutral-900 dark:text-foreground">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <DollarSign className="h-4 w-4" /> TVL
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 font-medium text-right text-neutral-900 dark:text-foreground">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Percent className="h-4 w-4" /> APY
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-4 py-3.5 font-medium text-right text-neutral-900 dark:text-foreground">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Percent className="h-4 w-4" /> 30d Avg APY
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <>
+                    {[...Array(5)].map((_, index) => (
+                      <TableRow
+                        key={index}
+                        className="border-b border-border/50"
+                      >
+                        <TableCell className="px-4 py-3.5">
+                          <div className="h-5 bg-muted rounded w-3/4 animate-pulse"></div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <div className="h-5 bg-muted rounded w-1/2 animate-pulse"></div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <div className="h-5 bg-muted rounded w-1/3 animate-pulse"></div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          <div className="h-5 bg-muted rounded w-1/4 ml-auto animate-pulse"></div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          <div className="h-5 bg-muted rounded w-1/4 ml-auto animate-pulse"></div>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          <div className="h-5 bg-muted rounded w-1/4 ml-auto animate-pulse"></div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-6 text-red-500"
+                    >
+                      {error}
+                    </TableCell>
+                  </TableRow>
+                ) : filteredPools.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-6 text-muted-foreground"
+                    >
+                      No pools found for the selected category.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPools.map((pool, index) => {
+                    const isLocked =
+                      pool.category === "Yield Aggregator" &&
+                      !isWalletConnected;
+                    return (
+                      <Tooltip.Root key={pool.pool} delayDuration={200}>
+                        <Tooltip.Trigger asChild>
+                          <TableRow
+                            className={`border-b border-border/50 ${
+                              isLocked
+                                ? "opacity-70 cursor-not-allowed filter blur-[1px]"
+                                : "hover:bg-muted/10 cursor-pointer"
+                            } transition-colors ${
+                              index === filteredPools.length - 1
+                                ? "border-b-0"
+                                : ""
+                            }`}
+                          >
+                            <Link
+                              href={isLocked ? "#" : `/pools/${pool.pool}`}
+                              className="contents"
+                            >
+                              <TableCell className="px-4 py-3.5 font-medium text-foreground">
+                                <div className="flex items-center gap-2">
+                                  {isLocked && (
+                                    <Lock className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  {pool.project}
+                                </div>
+                              </TableCell>
+                              <TableCell className="px-4 py-3.5">
+                                <Badge
+                                  variant={getCategoryVariant(pool.category)}
+                                >
+                                  {pool.category}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="px-4 py-3.5 text-muted-foreground">
+                                {pool.symbol}
+                              </TableCell>
+                              <TableCell
+                                className="px-4 py-3.5 text-right font-medium text-foreground"
+                                aria-label={`Total Value Locked: ${
+                                  pool.tvlUsd
+                                    ? pool.tvlUsd.toLocaleString("en-US")
+                                    : "Not Available"
+                                } USD`}
+                                title={
+                                  pool.tvlUsd
+                                    ? `Exact TVL: $${pool.tvlUsd.toLocaleString(
+                                        "en-US"
+                                      )}`
+                                    : undefined
+                                }
+                              >
+                                {formatTVL(pool.tvlUsd)}
+                              </TableCell>
+                              <TableCell
+                                className="px-4 py-3.5 text-right"
+                                aria-label={`Annual Percentage Yield: ${
+                                  pool.apy
+                                    ? formatAPY(pool.apy)
+                                    : "Not Available"
+                                }`}
+                              >
+                                <Badge
+                                  variant={getApyBadgeVariant(pool.apy)}
+                                  className="font-medium hover:bg-opacity-80 transition-colors"
+                                >
+                                  {pool.category === "Yield Aggregator" ? (
+                                    <>
+                                      {getApyTrend(pool.apy, pool.apyMean30d)}
+                                      {formatAPY(pool.apy)}
+                                    </>
+                                  ) : (
+                                    <>
+                                      {formatAPY(pool.apy)}
+                                      {getApyTrend(pool.apy, pool.apyMean30d)}
+                                    </>
+                                  )}
+                                </Badge>
+                              </TableCell>
+                              <TableCell
+                                className="px-4 py-3.5 text-right"
+                                aria-label={`30-day Average APY: ${
+                                  pool.apyMean30d
+                                    ? formatAPY(pool.apyMean30d)
+                                    : "Not Available"
+                                }`}
+                              >
+                                <Badge
+                                  variant="secondary"
+                                  className="font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                                >
+                                  {formatAPY(pool.apyMean30d)}
+                                </Badge>
+                              </TableCell>
+                            </Link>
+                          </TableRow>
+                        </Tooltip.Trigger>
+                        {isLocked && (
+                          <Tooltip.Portal>
+                            <Tooltip.Content
+                              className={`${
+                                theme === "dark"
+                                  ? "bg-neutral-100 text-neutral-900"
+                                  : "bg-background text-foreground"
+                              } border border-border rounded-md px-2 py-1 text-xs shadow-md z-50`}
+                              side="top"
+                              sideOffset={5}
+                            >
+                              Connect your wallet to unlock these fields
+                              <Tooltip.Arrow
+                                className={`${
+                                  theme === "dark"
+                                    ? "fill-neutral-100"
+                                    : "fill-border"
+                                }`}
+                              />
+                            </Tooltip.Content>
+                          </Tooltip.Portal>
+                        )}
+                      </Tooltip.Root>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+    </Tooltip.Provider>
   );
 }
