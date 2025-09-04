@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Lock,
@@ -48,7 +49,11 @@ interface ApiResponse {
 export default function DeFiPoolsTable() {
   const { isWalletConnected } = useWallet();
   const [pools, setPools] = useState<Pool[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [categoryFilter, setCategoryFilter] = useState<string>(""); // Changed to empty string
+  const [search, setSearch] = useState<string>("");
+  const [chainFilter, setChainFilter] = useState<string>(""); // Changed to empty string
+  const [apyMin, setApyMin] = useState<string>("");
+  const [apyMax, setApyMax] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
@@ -87,16 +92,46 @@ export default function DeFiPoolsTable() {
     fetchPools();
   }, []);
 
-  const filteredPools =
-    categoryFilter === "All"
-      ? pools
-      : pools.filter((pool) => pool.category === categoryFilter);
+  const filteredPools = pools
+    .filter((pool) =>
+      categoryFilter === "" || categoryFilter === "All"
+        ? true
+        : pool.category === categoryFilter
+    )
+    .filter((pool) =>
+      chainFilter === "" || chainFilter === "All"
+        ? true
+        : pool.chain === chainFilter
+    )
+    .filter((pool) => {
+      if (!search) return true;
+      const text = `${pool.project} ${pool.symbol}`.toLowerCase();
+      return text.includes(search.toLowerCase());
+    })
+    .filter((pool) => {
+      const min = apyMin ? parseFloat(apyMin) : undefined;
+      const max = apyMax ? parseFloat(apyMax) : undefined;
+      const apy = pool.apy ?? NaN;
+      if (!isFinite(apy)) return false;
+      if (min !== undefined && apy < min) return false;
+      if (max !== undefined && apy > max) return false;
+      return true;
+    });
 
   const categories: string[] = [
     "All",
     "Lending",
     "Liquid Staking",
     "Yield Aggregator",
+  ];
+
+  const chains: string[] = [
+    "All",
+    "Ethereum",
+    "Arbitrum",
+    "Polygon",
+    "Base",
+    "Solana",
   ];
 
   const formatTVL = (tvl: number | null): string => {
@@ -158,29 +193,69 @@ export default function DeFiPoolsTable() {
 
   return (
     <Tooltip.Provider>
-      <div className="px-6 sm:px-8 py-10 bg-background text-foreground max-w-full overflow-x-auto">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">
-              DeFi Pools
-            </h1>
-            <p className="sm:text-lg text-muted-foreground">
-              Discover the best yield opportunities across leading DeFi
-              protocols
-            </p>
+      <div className="px-0 sm:px-0 py-6 bg-background text-foreground max-w-full overflow-x-auto">
+        <div className="mb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-1">
+            DeFi Pools
+          </h1>
+          <p className="sm:text-lg text-muted-foreground">
+            Discover the best yield opportunities across leading DeFi protocols
+          </p>
+        </div>
+        <div className="mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="col-span-1">
+              <Input
+                placeholder="Search by project or asset"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="col-span-1">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full border-border rounded-md focus:outline-none">
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-1">
+              <Select value={chainFilter} onValueChange={setChainFilter}>
+                <SelectTrigger className="w-full border-border rounded-md focus:outline-none">
+                  <SelectValue placeholder="Select Chain" />
+                </SelectTrigger>
+                <SelectContent>
+                  {chains.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-1 grid grid-cols-2 gap-3">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Min APY"
+                value={apyMin}
+                onChange={(e) => setApyMin(e.target.value)}
+              />
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Max APY"
+                value={apyMax}
+                onChange={(e) => setApyMax(e.target.value)}
+              />
+            </div>
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-[180px] border-border rounded-md focus:outline-none">
-              <SelectValue placeholder="Select Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="overflow-x-auto">
@@ -258,7 +333,7 @@ export default function DeFiPoolsTable() {
                       colSpan={6}
                       className="text-center py-6 text-muted-foreground"
                     >
-                      No pools found for the selected category.
+                      No pools found for the selected filters.
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -242,7 +242,7 @@ export default function PoolDetails() {
   const textColor = theme === "dark" ? "#FFFFFF" : "#000000";
 
   return (
-    <div className="container mx-auto px-6 sm:px-8 py-10">
+    <div className="container mx-auto py-10 px-1 sm:px-1">
       {isLoading ? (
         <div className="space-y-6">
           {/* Top Section Skeleton */}

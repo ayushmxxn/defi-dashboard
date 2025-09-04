@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "../ThemeToggle";
-import { Wallet } from "lucide-react";
+import { Wallet, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 
@@ -38,8 +38,18 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Right Side: Theme Toggle and Connect Wallet */}
+          {/* Right Side: Mobile menu toggle, Theme Toggle and Connect Wallet */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+            <button
+              className="inline-flex lg:hidden items-center justify-center rounded-md border border-border p-2 hover:bg-muted/40"
+              aria-label="Toggle sidebar"
+              onClick={() => {
+                const btn = document.getElementById("__sidebar-toggle__");
+                btn?.click();
+              }}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <ThemeToggle />
             <Button
               onClick={connectWallet}

@@ -59,6 +59,7 @@ export default function ThemeToggle() {
               ? "Light mode"
               : "System mode"
           }
+          className="border border-[var(--border)] rounded-md" // Added border and rounded-md
         >
           {renderIcon()}
           <span className="sr-only">Toggle theme</span>
