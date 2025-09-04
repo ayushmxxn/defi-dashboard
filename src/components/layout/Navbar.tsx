@@ -8,7 +8,17 @@ import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 
 export default function Navbar() {
-  const { isWalletConnected, connectWallet } = useWallet();
+  const {
+    isWalletConnected,
+    account,
+    isConnecting,
+    connectWallet,
+    disconnectWallet,
+  } = useWallet();
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
 
   return (
     <>
@@ -51,23 +61,39 @@ export default function Navbar() {
               <Menu className="h-5 w-5" />
             </button>
             <ThemeToggle />
-            <Button
-              onClick={connectWallet}
-              className={`
-                flex items-center space-x-1
-                px-2.5 py-1.5 sm:px-4 sm:py-2
-                rounded-sm sm:rounded-md
-                bg-primary text-primary-foreground
-                hover:bg-primary/80
-                transition-all duration-200
-                text-xs sm:text-sm font-semibold
-                disabled:opacity-50  cursor-pointer
-              `}
-              disabled={isWalletConnected}
-            >
-              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span>{isWalletConnected ? "Connected" : "Connect Wallet"}</span>
-            </Button>
+            {isWalletConnected ? (
+              <div className="flex items-center space-x-2">
+                <div className="hidden sm:block text-xs text-muted-foreground">
+                  {account ? formatAddress(account) : "Connected"}
+                </div>
+                <Button
+                  onClick={disconnectWallet}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={connectWallet}
+                disabled={isConnecting}
+                className={`
+                  flex items-center space-x-1
+                  px-2.5 py-1.5 sm:px-4 sm:py-2
+                  rounded-sm sm:rounded-md
+                  bg-primary text-primary-foreground
+                  hover:bg-primary/80
+                  transition-all duration-200
+                  text-xs sm:text-sm font-semibold
+                  disabled:opacity-50 cursor-pointer
+                `}
+              >
+                <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>{isConnecting ? "Connecting..." : "Connect Wallet"}</span>
+              </Button>
+            )}
           </div>
         </div>
       </nav>

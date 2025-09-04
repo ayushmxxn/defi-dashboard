@@ -28,7 +28,9 @@ declare global {
 interface WalletContextType {
   isWalletConnected: boolean;
   account: string | null;
+  isConnecting: boolean;
   connectWallet: () => Promise<void>;
+  disconnectWallet: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -40,94 +42,218 @@ interface WalletProviderProps {
 export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [isWalletConnected, setIsWalletConnected] = useState<boolean>(false);
   const [account, setAccount] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [connectionPromise, setConnectionPromise] =
+    useState<Promise<void> | null>(null);
+
+  // Check for existing connection on mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (!window.ethereum) return;
+
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          setAccount(accounts[0].address);
+          setIsWalletConnected(true);
+        }
+      } catch (error) {
+        console.log("No existing connection found");
+      }
+    };
+
+    checkConnection();
+  }, []);
 
   const connectWallet = async (): Promise<void> => {
-    try {
-      if (!window.ethereum) {
-        alert("Please install MetaMask to use this feature.");
-        return;
-      }
+    // If already connecting, return the existing promise
+    if (connectionPromise) {
+      return connectionPromise;
+    }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      const chainId = network.chainId;
+    // If already connected, return immediately
+    if (isWalletConnected) {
+      return;
+    }
 
-      if (Number(chainId) !== 1) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: "0x1" }],
-          });
-        } catch (switchError: unknown) {
-          // Type guard for error with code property
-          if (
-            switchError &&
-            typeof switchError === "object" &&
-            "code" in switchError &&
-            (switchError as { code: number }).code === 4902
-          ) {
-            alert("Please add Ethereum Mainnet to MetaMask.");
-          }
-          return;
+    setIsConnecting(true);
+
+    const connectPromise = (async () => {
+      try {
+        if (!window.ethereum) {
+          throw new Error(
+            "MetaMask is not installed. Please install MetaMask to continue."
+          );
         }
-      }
 
-      const accounts = (await provider.send(
-        "eth_requestAccounts",
-        []
-      )) as string[];
-      if (accounts.length > 0) {
+        // Check if MetaMask is available
+        if (!window.ethereum.isMetaMask) {
+          throw new Error(
+            "Please use MetaMask wallet to connect. Other wallets are not supported."
+          );
+        }
+
+        // Request account access with timeout
+        const accounts = await Promise.race([
+          window.ethereum.request({
+            method: "eth_requestAccounts",
+          }) as Promise<string[]>,
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Connection timeout. Please try again.")),
+              30000
+            )
+          ),
+        ]);
+
+        if (!accounts || accounts.length === 0) {
+          throw new Error(
+            "No accounts found. Please unlock your MetaMask wallet."
+          );
+        }
+
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        const chainId = network.chainId;
+
+        // Check if we're on Ethereum mainnet, if not, try to switch
+        if (Number(chainId) !== 1) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: "0x1" }],
+            });
+          } catch (switchError: any) {
+            if (switchError.code === 4902) {
+              // Chain not added, try to add it
+              try {
+                await window.ethereum.request({
+                  method: "wallet_addEthereumChain",
+                  params: [
+                    {
+                      chainId: "0x1",
+                      chainName: "Ethereum Mainnet",
+                      rpcUrls: ["https://mainnet.infura.io/v3/"],
+                      nativeCurrency: {
+                        name: "Ether",
+                        symbol: "ETH",
+                        decimals: 18,
+                      },
+                      blockExplorerUrls: ["https://etherscan.io"],
+                    },
+                  ],
+                });
+              } catch (addError) {
+                throw new Error(
+                  "Failed to add Ethereum Mainnet to MetaMask. Please add it manually."
+                );
+              }
+            } else if (switchError.code === 4001) {
+              throw new Error(
+                "User rejected the network switch. Please switch to Ethereum Mainnet manually."
+              );
+            } else {
+              throw new Error(
+                "Failed to switch to Ethereum Mainnet. Please switch manually."
+              );
+            }
+          }
+        }
+
         setAccount(accounts[0]);
         setIsWalletConnected(true);
-        console.log("Connected account:", accounts[0]);
+        console.log("Successfully connected to MetaMask:", accounts[0]);
+      } catch (error: any) {
+        console.error("Failed to connect wallet:", error);
+
+        // Provide specific error messages based on the error type
+        let errorMessage = "Failed to connect to MetaMask. Please try again.";
+
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.code === 4001) {
+          errorMessage =
+            "Connection rejected. Please approve the connection in MetaMask.";
+        } else if (error.code === -32002) {
+          errorMessage =
+            "Connection request already pending. Please check MetaMask.";
+        }
+
+        alert(errorMessage);
+        throw error; // Re-throw to ensure the promise rejects
+      } finally {
+        setIsConnecting(false);
+        setConnectionPromise(null); // Clear the promise when done
       }
-    } catch (error: unknown) {
-      console.error("Failed to connect wallet:", error);
-      alert("Failed to connect MetaMask. Please try again.");
-    }
+    })();
+
+    // Store the promise to prevent multiple simultaneous requests
+    setConnectionPromise(connectPromise);
+
+    return connectPromise;
+  };
+
+  const disconnectWallet = (): void => {
+    setAccount(null);
+    setIsWalletConnected(false);
+    setConnectionPromise(null); // Clear any pending connection
+    setIsConnecting(false); // Reset connecting state
+    console.log("Wallet disconnected");
   };
 
   useEffect(() => {
     if (!window.ethereum) return;
 
-    const handleAccountsChanged = (accounts: unknown) => {
-      if (
-        Array.isArray(accounts) &&
-        accounts.every((acc) => typeof acc === "string")
-      ) {
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          setIsWalletConnected(true);
-        } else {
-          setAccount(null);
-          setIsWalletConnected(false);
-        }
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0]);
+        setIsWalletConnected(true);
       } else {
         setAccount(null);
         setIsWalletConnected(false);
+        setConnectionPromise(null); // Clear any pending connection
+        setIsConnecting(false); // Reset connecting state
       }
     };
 
-    const handleChainChanged = () => {
+    const handleChainChanged = (chainId: string) => {
+      console.log("Chain changed to:", chainId);
+      // Reload the page when chain changes to ensure proper state
       window.location.reload();
     };
 
-    // event listeners
+    const handleDisconnect = () => {
+      setAccount(null);
+      setIsWalletConnected(false);
+      setConnectionPromise(null); // Clear any pending connection
+      setIsConnecting(false); // Reset connecting state
+    };
+
+    // Add event listeners
     window.ethereum.on("accountsChanged", handleAccountsChanged);
     window.ethereum.on("chainChanged", handleChainChanged);
+    window.ethereum.on("disconnect", handleDisconnect);
 
     // Cleanup event listeners on component unmount
     return () => {
       if (window.ethereum) {
         window.ethereum.removeAllListeners("accountsChanged");
         window.ethereum.removeAllListeners("chainChanged");
+        window.ethereum.removeAllListeners("disconnect");
       }
     };
   }, []);
 
   return (
     <WalletContext.Provider
-      value={{ isWalletConnected, account, connectWallet }}
+      value={{
+        isWalletConnected,
+        account,
+        isConnecting,
+        connectWallet,
+        disconnectWallet,
+      }}
     >
       {children}
     </WalletContext.Provider>

@@ -21,13 +21,13 @@ interface SidebarProps {
 export default function Sidebar({
   isOpen,
   onClose,
-  width = 280,
+  width = 250,
   onResize,
   onResizeStart,
   onResizeEnd,
   collapsed = false,
 }: SidebarProps) {
-  const { isWalletConnected, connectWallet } = useWallet();
+  const { isWalletConnected, isConnecting, connectWallet } = useWallet();
 
   return (
     <>
@@ -102,15 +102,17 @@ export default function Sidebar({
             <Button
               onClick={connectWallet}
               className={cn(
-                "px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/80 text-xs font-semibold disabled:opacity-50",
+                "px-3 py-1.5 cursor-pointer rounded-md bg-primary text-primary-foreground hover:bg-primary/80 text-xs font-semibold disabled:opacity-50",
                 collapsed && "p-2"
               )}
-              disabled={isWalletConnected}
+              disabled={isWalletConnected || isConnecting}
             >
               {collapsed ? (
                 <Wallet className="h-4 w-4" />
               ) : isWalletConnected ? (
                 "Connected"
+              ) : isConnecting ? (
+                "Connecting..."
               ) : (
                 <>
                   <Wallet className="h-4 w-4" />
