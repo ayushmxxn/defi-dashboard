@@ -13,9 +13,10 @@ interface ApyApiResponse {
 // Dynamic route handler for GET requests
 export async function GET(
   request: Request,
-  { params }: { params: { poolId: string } }
+  { params }: { params: Promise<{ poolId: string }> }
 ) {
-  const { poolId } = params;
+  // Await the params Promise
+  const { poolId } = await params;
 
   try {
     // Validate poolId
