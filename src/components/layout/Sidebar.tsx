@@ -7,6 +7,7 @@ import { Info, GripVertical, Wallet } from "lucide-react";
 import ThemeToggle from "../ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
+import { useEffect, useState } from "react";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -28,6 +29,22 @@ export default function Sidebar({
   collapsed = false,
 }: SidebarProps) {
   const { isWalletConnected, isConnecting, connectWallet } = useWallet();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // Tailwind's lg breakpoint is 1024px
+    };
+
+    checkMobile(); // Initial check
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Force collapsed state on mobile
+  const isCollapsed = isMobile ? true : collapsed;
 
   return (
     <>
@@ -48,7 +65,7 @@ export default function Sidebar({
           "transition-transform duration-200 ease-out",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "lg:w-16" : "lg:w-[var(--sidebar-width)]" // Use CSS variable for desktop
+          isCollapsed ? "lg:w-16" : "lg:w-[var(--sidebar-width)]" // Use CSS variable for desktop
         )}
         style={{ "--sidebar-width": `${width}px` } as React.CSSProperties} // Set CSS variable
       >
@@ -57,7 +74,7 @@ export default function Sidebar({
             href="/"
             className={cn(
               "flex items-center gap-2",
-              collapsed && "justify-center w-full"
+              isCollapsed && "justify-center w-full"
             )}
           >
             <Image
@@ -67,25 +84,25 @@ export default function Sidebar({
               height={28}
               className="object-contain w-7 h-7 rounded-md"
             />
-            {!collapsed && (
+            {!isCollapsed && (
               <span className="text-sm sm:text-base font-semibold">
                 DeFi Dashboard
               </span>
             )}
           </Link>
         </div>
-        <nav className={cn("p-2 space-y-1", collapsed && "px-2")}>
+        <nav className={cn("p-2 space-y-1", isCollapsed && "px-2")}>
           <a
             href="https://defillama.com/"
             target="_blank"
             rel="noreferrer"
             className={cn(
               "group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              collapsed && "justify-center"
+              isCollapsed && "justify-center"
             )}
           >
             <Info className="h-4 w-4" />
-            {!collapsed && <span>Docs</span>}
+            {!isCollapsed && <span>Docs</span>}
           </a>
         </nav>
         {/* Bottom controls */}
@@ -93,7 +110,7 @@ export default function Sidebar({
           <div
             className={cn(
               "flex gap-2",
-              collapsed
+              isCollapsed
                 ? "flex-col items-center"
                 : "justify-between items-center"
             )}
@@ -103,11 +120,11 @@ export default function Sidebar({
               onClick={connectWallet}
               className={cn(
                 "px-3 py-1.5 cursor-pointer rounded-md bg-primary text-primary-foreground hover:bg-primary/80 text-xs font-semibold disabled:opacity-50",
-                collapsed && "p-2"
+                isCollapsed && "p-2"
               )}
               disabled={isWalletConnected || isConnecting}
             >
-              {collapsed ? (
+              {isCollapsed ? (
                 <Wallet className="h-4 w-4" />
               ) : isWalletConnected ? (
                 "Connected"
@@ -122,9 +139,9 @@ export default function Sidebar({
             </Button>
           </div>
         </div>
-        {!collapsed && (
+        {!isCollapsed && (
           <div
-            className="absolute top-0 right-0 h-full w-2 cursor-col-resize group lg:block" // Ensure resize handle is visible on desktop
+            className="absolute top-0 right-0 h-full w-2 cursor-col-resize group lg:block"
             onMouseDown={(e) => {
               e.preventDefault();
               onResizeStart?.();
